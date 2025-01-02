@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define CARENA_CAPACITY      16*1000
 #define CARENA_STATUS_FREE    "FREE"
 #define CARENA_STATUS_FULL    "FULL"
 
@@ -24,18 +23,18 @@ void    Carena_status(Carena *carena);
 
 #ifdef CARENA_IMPLEMENTATION
 
-Carena* Carena_init()
+Carena* Carena_init(size_t capacity)
 {
     Carena *carena = (Carena*) calloc(1, sizeof(*carena));
     if (carena != NULL){
-        void *arena = calloc(1, CARENA_CAPACITY);
+        void *arena = calloc(1, capacity);
         if (arena == NULL){
             free(carena);
             return NULL;
         }
         carena->arena = arena;
         carena->size = 0;
-        carena->capacity = CARENA_CAPACITY;
+        carena->capacity = capacity;
     }
 }
 

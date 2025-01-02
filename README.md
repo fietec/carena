@@ -17,8 +17,6 @@
 ```
 
 ## How to use
-The size of an arena is defined by the `CARENA_CAPACITY` macro inside of `carena.h`.
-Edit this macro if you want to alter this default capacity.
 ```c
 #define CARENA_IMPLEMENTATION
 #include "carena.h"
@@ -31,7 +29,7 @@ typedef struct{
 
 int main(void)
 {
-    Carena *arena = Carena_init(); // Initialize the Arena
+    Carena *arena = Carena_init(32*1024); // Initialize the Arena with a capacity of 32 kilobytes
     
     for (int i=0; i<1000; ++i){
         Test *test = Carena_alloc(arena, sizeof(Test));  // use Carena_alloc to allocate memory, just like with malloc
@@ -46,7 +44,7 @@ int main(void)
 ## Function outlines
 
 ```c
-Carena* Carena_init();
+Carena* Carena_init(size_t capacity);
 void    Carena_free(Carena *carena);
 void*   Carena_alloc(Carena *carena, size_t size); // Note: memory is zero initialized by default
 void    Carena_status(Carena *carena);
