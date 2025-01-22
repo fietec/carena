@@ -6,58 +6,87 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
+
+#ifndef ALLOCATOR
+	#define ALLOCATOR
+	typedef void* (*Allocator) (size_t);
+    typedef void  (*Deallocator) (void*);
+#endif // ALLOCATOR
 
 #define CARENA_STATUS_FREE    "FREE"
 #define CARENA_STATUS_FULL    "FULL"
 
-typedef struct{
-    void *arena;
+#define carena_error(msg, ...) (fprintf(stderr, "%s:%d [ERROR]" msg "\n", __FILE__, __LINE__, ##__VA_ARGS__))
+#define carena_assert(state, msg, ...) do{if(!(state){carena_error((msg), __VA_ARGS__); exit(1);}}while(0)
+
+typedef struct Carena Carena;
+typedef struct CarenaRegion CarenaRegion;
+
+struct Carena{
+    CarenaRegion *first, *last;
+};
+
+struct Carena_region{
     size_t size;
     size_t capacity;
-} Carena;
+    CarenaRegion *next;
+    uintptr_t data[];
+};
 
-Carena* Carena_init();
-void    Carena_free(Carena *carena);
-void*   Carena_alloc(Carena *carena, size_t size);
-void    Carena_status(Carena *carena);
+void* carena_alloc(Carena *carena, size_t size);
+void  carena_free(Carena *carena);
+
+#endif // _CARENA_H
 
 #ifdef CARENA_IMPLEMENTATION
 
-Carena* Carena_init(size_t capacity)
+CarenaRegion* carena_new_region(size_t capacity)
 {
-    Carena *carena = (Carena*) calloc(1, sizeof(*carena));
-    if (carena != NULL){
-        void *arena = calloc(1, capacity);
-        if (arena == NULL){
-            free(carena);
-            return NULL;
-        }
-        carena->arena = arena;
-        carena->size = 0;
-        carena->capacity = capacity;
+    // this currently uses malloc, maybe enable backend customization later
+    size_t size = sizeof(CarenaRegion) + sizeof(uintptr_t)*capacity;
+    CarenaRegion *region = malloc(size);
+    carena_assert(region != NULL, "Failed to allocate new region!");
+    region->size = 0;
+    region->capacity = capacity;
+    region->next = NULL;
+    return region;
+}
+
+void* carena_alloc(Carena *arena, size_t size)
+{
+    if (arena == NULL) return NULL;
+    size_t all_size = (size + sizeof(uintptr_t) - 1) / sizeof(uintptr_t);
+    if (arena->first == NULL){
+        carena_assert(arena->last == NULL, "Invalid arena state!: first:%p, last:%p", arena->first, arena->second);
+        size_t capacity = (all_size > CARENA_REGION_CAPACITY)? all_size:CARENA_REGION_CAPACITY;
+        CarenaRegion *region = carena_new_region(capacity);
+        arena->first = region;
+        arena->last = region;
     }
-}
-
-void Carena_free(Carena *carena)
-{
-    if (carena != NULL){
-        free(carena->arena);
-        free(carena);
+    CarenaRegion *last = arena->last;
+    if (last->size + all_size > last->capacity){
+        carena_assert(arena->last == NULL, "Invalid arena state!: size:%zu, capacity:%zu, next:%p", last->size, last->capacity, last->next);
+        size_t capacity = (all_size > CARENA_REGION_CAPACITY)? all_size:CARENA_REGION_CAPACITY;
+        last->next = Carena_new_region(capacity);
+        arena->last = last->next;
     }
+    void *result = &arena->last->data[arena->last->size];
+    arena->last->count += all_size;
+    return result;
 }
 
-void* Carena_alloc(Carena *carena, size_t size)
+void arena_free(Carena *arena)
 {
-    if (carena == NULL || size == 0 || carena->size + size >= carena->capacity) return NULL;
-    carena->size += size;
-    return carena->arena + carena->size;
+    if (arena == NULL) return;
+    CarenaRegion *region = arena->last->next;
+    while (region != NULL){
+        CarenaRegion *temp = region;
+        region = temp->next;
+        free(temp);
+    }
+    arena->last->next = NULL;
+    
 }
 
-void Carena_status(Carena *carena)
-{
-    if (carena == NULL) return;
-    printf("Carena: {size: %d, capacity: %d} => %d%c filled => \"%s\"\n", carena->size, carena->capacity, (int)(carena->size*100/carena->capacity), '%',(carena->size < carena->capacity)? CARENA_STATUS_FREE:CARENA_STATUS_FULL);
-}
 #endif // CARENA_IMPLEMENTATION
-
-#endif // _CARENA_H
