@@ -35,6 +35,7 @@ struct CarenaRegion{
 };
 
 void* carena_alloc(Carena *carena, size_t size);
+void* carena_realloc(Carena *arena, void *old_ptr, size_t old_size, size_t new_size);
 void  carena_free(Carena *carena);
 
 #endif // _CARENA_H
@@ -75,6 +76,21 @@ void* carena_alloc(Carena *arena, size_t size)
     arena->last->size += all_size;
     return result;
 }
+
+void* carena_realloc(Carena *arena, void *old_ptr, size_t old_size, size_t new_size)
+{
+    if (arena == NULL) return NULL;
+    if (old_size >= new_size) return old_ptr;
+    void *new_ptr = cson_alloc(&cson_arena, new_size);
+    carena_assert(new_ptr != NULL, "Failed to reallocate!");
+    char *rc = (char*) old_ptr;
+    char *wc = (char*) new_ptr;
+    for (size_t i=0; i<old_size; ++i){
+        wc[i] = rc[i];
+    }
+    return new_ptr;
+}
+
 
 void carena_free(Carena *arena)
 {
