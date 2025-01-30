@@ -1,24 +1,17 @@
 #ifndef _CARENA_H
 #define _CARENA_H
 
-// to access the functions' bodies use
-// #include CARENA_IMPLEMENTATION
+// to access the functions' bodies define CARENA_IMPLEMENTATION
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
 
-#ifndef ALLOCATOR
-	#define ALLOCATOR
-	typedef void* (*Allocator) (size_t);
-    typedef void  (*Deallocator) (void*);
-#endif // ALLOCATOR
-
 #define CARENA_REGION_CAPACITY  32
 
-#define carena_error(msg, ...) (fprintf(stderr, "%s:%d [ERROR]" (msg)"\n", __FILE__, __LINE__))
-#define carena_assert(state, msg, ...) do{if(!(state)){carena_error((msg), __VA_ARGS__); exit(1);}}while(0)
+#define carena_error(msg, ...) (fprintf(stderr, "%s:%d [ERROR]" msg "\n", __FILE__, __LINE__))
+#define carena_assert(state, msg, ...) do{if(!(state)){carena_error(msg, __VA_ARGS__); exit(1);}}while(0)
 
 typedef struct Carena Carena;
 typedef struct CarenaRegion CarenaRegion;
@@ -44,9 +37,9 @@ void  carena_free(Carena *carena);
 
 CarenaRegion* carena_new_region(size_t capacity)
 {
-    // this currently uses malloc, maybe enable backend customization later
+    // this currently uses calloc, maybe enable backend customization later
     size_t size = sizeof(CarenaRegion) + sizeof(uintptr_t)*capacity;
-    CarenaRegion *region = malloc(size);
+    CarenaRegion *region = calloc(1, size);
     carena_assert(region != NULL, "Failed to allocate new region!");
     region->size = 0;
     region->capacity = capacity;
@@ -81,7 +74,7 @@ void* carena_realloc(Carena *arena, void *old_ptr, size_t old_size, size_t new_s
 {
     if (arena == NULL) return NULL;
     if (old_size >= new_size) return old_ptr;
-    void *new_ptr = cson_alloc(&cson_arena, new_size);
+    void *new_ptr = carena_alloc(arena, new_size);
     carena_assert(new_ptr != NULL, "Failed to reallocate!");
     char *rc = (char*) old_ptr;
     char *wc = (char*) new_ptr;
@@ -90,7 +83,6 @@ void* carena_realloc(Carena *arena, void *old_ptr, size_t old_size, size_t new_s
     }
     return new_ptr;
 }
-
 
 void carena_free(Carena *arena)
 {
@@ -101,7 +93,7 @@ void carena_free(Carena *arena)
         region = temp->next;
         free(temp);
     }
-    arena->first = NULL
+    arena->first = NULL;
     arena->last = NULL;
 }
 
